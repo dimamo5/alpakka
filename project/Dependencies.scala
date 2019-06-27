@@ -112,8 +112,8 @@ object Dependencies {
         // http://activemq.apache.org/download.html
         "org.apache.activemq" % "activemq-all" % "5.15.4" exclude ("log4j", "log4j") exclude ("org.slf4j", "slf4j-log4j12"), // ApacheV2
         "com.h2database" % "h2" % "1.4.197", // Eclipse Public License 1.0
-        "org.elasticsearch.client" % "elasticsearch-rest-client" % "6.3.1", // ApacheV2
-        "org.codelibs" % "elasticsearch-cluster-runner" % "6.3.1.0", // ApacheV2
+        "org.elasticsearch.client" % "elasticsearch-rest-client" % "7.1.1", // ApacheV2
+        "org.codelibs" % "elasticsearch-cluster-runner" % "7.1.1.0", // ApacheV2
         "io.netty" % "netty-all" % "4.1.29.Final", // ApacheV2
         "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % "2.9.9",
         "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % "2.9.9",
@@ -133,10 +133,10 @@ object Dependencies {
 
   val Elasticsearch = Seq(
     libraryDependencies ++= Seq(
-        "org.elasticsearch.client" % "elasticsearch-rest-client" % "6.3.1", // ApacheV2
+        "org.elasticsearch.client" % "elasticsearch-rest-client" % "7.1.1", // ApacheV2
         "io.spray" %% "spray-json" % "1.3.5", // ApacheV2
         "com.fasterxml.jackson.core" % "jackson-databind" % JacksonDatabindVersion, // ApacheV2
-        "org.codelibs" % "elasticsearch-cluster-runner" % "6.3.1.0" % Test, // ApacheV2
+        "org.codelibs" % "elasticsearch-cluster-runner" % "7.1.1.0" % Test, // ApacheV2
         "org.slf4j" % "jcl-over-slf4j" % "1.7.25" % Test
       )
   )

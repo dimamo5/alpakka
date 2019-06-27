@@ -11,12 +11,12 @@ import akka.stream.alpakka.elasticsearch.{ElasticsearchSourceSettings, ReadResul
 import akka.stream.stage.{GraphStage, GraphStageLogic, OutHandler, StageLogging}
 import akka.stream.{Attributes, Outlet, SourceShape}
 import org.apache.http.entity.StringEntity
-import org.apache.http.message.BasicHeader
 import org.elasticsearch.client.{Response, ResponseListener, RestClient}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-import scala.collection.JavaConverters._
+import org.elasticsearch.client.Request
+import org.elasticsearch.client.RequestOptions
 
 /**
  * INTERNAL API
@@ -121,24 +121,27 @@ private[elasticsearch] final class ElasticsearchSourceLogic[T](indexName: String
           case (i, Some(t)) => s"/$i/$t/_search"
           case (i, None) => s"/$i/_search"
         }
+        val req = new Request("POST", endpoint)
+        req.setJsonEntity(searchBody)
+        req.addParameter("scroll", settings.scroll)
+        req.addParameter("sort", "_doc")
+
         client.performRequestAsync(
-          "POST",
-          endpoint,
-          Map("scroll" -> settings.scroll, "sort" -> "_doc").asJava,
-          new StringEntity(searchBody),
-          this,
-          new BasicHeader("Content-Type", "application/json")
+          req,
+          this
         )
       } else {
         log.debug("Fetching next scroll")
 
+        val req = new Request("POST", s"/_search/scroll")
+        req.setEntity(new StringEntity(Map("scroll" -> settings.scroll, "scroll_id" -> scrollId).toJson.toString))
+        val builder = RequestOptions.DEFAULT.toBuilder()
+        builder.addHeader("Content-Type", "application/json")
+        req.setOptions(builder.build())
+
         client.performRequestAsync(
-          "POST",
-          s"/_search/scroll",
-          Map[String, String]().asJava,
-          new StringEntity(Map("scroll" -> settings.scroll, "scroll_id" -> scrollId).toJson.toString),
-          this,
-          new BasicHeader("Content-Type", "application/json")
+          req,
+          this
         )
       }
     } catch {

@@ -4,18 +4,15 @@
 
 package akka.stream.alpakka.elasticsearch.impl
 
-import java.nio.charset.StandardCharsets
-
 import akka.annotation.InternalApi
 import akka.stream.alpakka.elasticsearch.Operation._
 import akka.stream.alpakka.elasticsearch._
 import akka.stream.alpakka.elasticsearch.impl.ElasticsearchFlowStage._
 import akka.stream.stage._
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
-import org.apache.http.entity.StringEntity
-import org.apache.http.message.BasicHeader
 import org.apache.http.util.EntityUtils
 import org.elasticsearch.client.{Response, ResponseListener, RestClient}
+import org.elasticsearch.client.Request
 import spray.json._
 
 import scala.collection.immutable
@@ -195,16 +192,15 @@ private[elasticsearch] final class ElasticsearchFlowStage[T, C](
 
       log.debug("Posting data to Elasticsearch: {}", json)
 
+      val req = new Request("POST", "/_bulk")
+      req.setJsonEntity(json)
+
       client.performRequestAsync(
-        "POST",
-        "/_bulk",
-        java.util.Collections.emptyMap[String, String](),
-        new StringEntity(json, StandardCharsets.UTF_8),
+        req,
         new ResponseListener() {
           override def onFailure(exception: Exception): Unit = failureHandler.invoke((messages, exception))
           override def onSuccess(response: Response): Unit = responseHandler.invoke((messages, response))
-        },
-        new BasicHeader("Content-Type", "application/x-ndjson")
+        }
       )
     }
 

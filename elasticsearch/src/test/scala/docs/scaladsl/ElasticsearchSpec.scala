@@ -4,28 +4,24 @@
 
 package docs.scaladsl
 
-import java.util.Collections
 import java.util.concurrent.TimeUnit
 
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.alpakka.elasticsearch.scaladsl._
-import akka.stream.alpakka.elasticsearch.testkit.MessageFactory
 import akka.stream.alpakka.elasticsearch._
 import akka.stream.scaladsl.{Sink, Source}
 import akka.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
 import akka.testkit.TestKit
-import org.apache.http.entity.StringEntity
-import org.apache.http.message.BasicHeader
 import org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, Inspectors, Matchers, WordSpec}
 
-import scala.collection.JavaConverters._
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import org.elasticsearch.client.Request
 
 class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll with ScalaFutures with Inspectors {
 
@@ -64,12 +60,11 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
     )
     runner.ensureYellow()
 
-    def register(indexName: String, title: String): Unit =
-      client.performRequest("POST",
-                            s"$indexName/_doc",
-                            Map[String, String]().asJava,
-                            new StringEntity(s"""{"title": "$title"}"""),
-                            new BasicHeader("Content-Type", "application/json"))
+    def register(indexName: String, title: String): Unit = {
+      val req = new Request("POST", s"$indexName/_doc")
+      req.setJsonEntity(s"""{"title": "$title"}""")
+      client.performRequest(req)
+    }
 
     register("source", "Akka in Action")
     register("source", "Programming in Scala")
@@ -78,7 +73,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
     register("source", "Scala Puzzlers")
     register("source", "Effective Akka")
     register("source", "Akka Concurrency")
-    flush("source")
+    refresh("source")
   }
 
   override def afterAll() = {
@@ -88,27 +83,22 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
     TestKit.shutdownActorSystem(system)
   }
 
-  private def flush(indexName: String): Unit =
-    client.performRequest("POST", s"$indexName/_flush")
+  private def refresh(indexName: String): Unit =
+    client.performRequest(new Request("POST", s"$indexName/_refresh"))
 
-  private def createStrictMapping(indexName: String): Unit =
-    client.performRequest(
-      "PUT",
-      indexName,
-      Collections.emptyMap[String, String],
-      new StringEntity(s"""{
-           |  "mappings": {
-           |    "_doc": {
-           |      "dynamic": "strict",
-           |      "properties": {
-           |        "title": { "type": "text"}
-           |      }
-           |    }
-           |  }
-           |}
-         """.stripMargin),
-      new BasicHeader("Content-Type", "application/json")
-    )
+  private def createStrictMapping(indexName: String): Unit = {
+    val req = new Request("PUT", indexName)
+    req.setJsonEntity(s"""{
+      |  "mappings": {
+      |    "dynamic": "strict",
+      |    "properties": {
+      |      "title": { "type": "text"}
+      |    }
+      |  }
+      |}
+    """.stripMargin)
+    client.performRequest(req)
+  }
 
   private def documentation: Unit = {
     //#source-settings
@@ -205,7 +195,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
       //#run-jsobject
 
       copy.futureValue shouldBe Done
-      flush(indexName)
+      refresh(indexName)
 
       readTitlesFrom(indexName).futureValue should contain allElementsOf Seq(
         "Akka Concurrency",
@@ -241,7 +231,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
       //#run-typed
 
       copy.futureValue shouldBe Done
-      flush(indexName)
+      refresh(indexName)
 
       readTitlesFrom(indexName).futureValue should contain allElementsOf Seq(
         "Akka Concurrency",
@@ -279,7 +269,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
 
       // Assert no errors
       copy.futureValue.filter(!_.success) shouldBe empty
-      flush(indexName)
+      refresh(indexName)
 
       readTitlesFrom(indexName).futureValue.sorted shouldEqual Seq(
         "Akka Concurrency",
@@ -348,7 +338,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
 
       // Assert no error
       createBooks.futureValue.filter(!_.success) shouldBe empty
-      flush(indexName)
+      refresh(indexName)
       readTitlesFrom(indexName).futureValue should contain allElementsOf Seq(
         "Akka in Action",
         "Akka \u00DF Concurrency"
@@ -399,7 +389,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
       // Assert retried 5 times by looking duration
       assert(end - start > 5 * 100)
 
-      flush(indexName)
+      refresh(indexName)
       readTitlesFrom(indexName).futureValue shouldEqual Seq(
         "Akka in Action"
       )
@@ -451,7 +441,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
 
       kafkaToEs.futureValue shouldBe Done
       //#kafka-example
-      flush(indexName)
+      refresh(indexName)
 
       // Make sure all messages was committed to kafka
       committedOffsets.map(_.offset) should contain theSameElementsAs Seq(0, 1, 2)
@@ -480,7 +470,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
 
       // Assert no errors
       createBooks.futureValue.filter(!_.success) shouldBe 'empty
-      flush(indexName)
+      refresh(indexName)
 
       // Create a second dataset with matching indexes to test partial update
       val updatedBooks = List(
@@ -513,7 +503,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
 
       // Assert no errors
       upserts.futureValue.filter(!_.success) shouldBe 'empty
-      flush(indexName)
+      refresh(indexName)
 
       // Assert docs in sink7/_doc
       val readBooks = ElasticsearchSource(
@@ -571,7 +561,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
       val errorMessages = results.flatMap(_.errorReason)
       errorMessages should have size 1
       errorMessages(0) shouldEqual "[_doc][00004]: document missing"
-      flush(indexName)
+      refresh(indexName)
 
       // Assert docs in sink8/_doc
       val readBooks = ElasticsearchSource(
@@ -613,7 +603,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
       // Assert error
       val errorMessages = results.flatMap(_.errorReason)
       errorMessages should have size 1
-      errorMessages(0) shouldEqual "[_doc][00001]: version conflict, document already exists (current version [1])"
+      errorMessages(0) shouldEqual "[00001]: version conflict, document already exists (current version [1])"
     }
 
     "read and write document-version if configured to do so" in assertAllStagesStopped {
@@ -646,7 +636,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
 
       // Assert no errors
       indexResults.futureValue.filter(!_.success) shouldBe 'empty
-      flush(indexName)
+      refresh(indexName)
 
       // search for the documents and assert them being at version 1,
       // then update while specifying that for which version
@@ -667,20 +657,20 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
 
           val newDoc = doc.copy(value = doc.value + 1)
 
-          WriteMessage.createIndexMessage(newDoc.id, newDoc).withVersion(version)
+          WriteMessage.createIndexMessage(newDoc.id, newDoc).withVersion(version + 1)
         }
         .via(
           ElasticsearchFlow.create[VersionTestDoc](
             indexName,
             typeName,
-            ElasticsearchWriteSettings().withBufferSize(5)
+            ElasticsearchWriteSettings().withBufferSize(5).withVersionType("external")
           )
         )
         .runWith(Sink.seq)
 
       updatedVersions.futureValue.filter(!_.success) shouldBe 'empty
 
-      flush(indexName)
+      refresh(indexName)
       // Search again to assert that all documents are now on version 2
       val assertVersions = ElasticsearchSource
         .typed[VersionTestDoc](
@@ -711,7 +701,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
           ElasticsearchFlow.create[VersionTestDoc](
             indexName,
             typeName,
-            ElasticsearchWriteSettings().withBufferSize(5)
+            ElasticsearchWriteSettings().withBufferSize(5).withVersionType("external")
           )
         )
         .runWith(Sink.seq)
@@ -747,7 +737,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
       val insertResult = insertWrite.futureValue.head
       assert(insertResult.success)
 
-      flush(indexName)
+      refresh(indexName)
 
       // Assert that the document's external version is saved
       val readFirst = ElasticsearchSource
@@ -788,7 +778,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
       //#custom-index-name-example
 
       writeCustomIndex.futureValue shouldBe Done
-      flush(customIndexName)
+      refresh(customIndexName)
       readTitlesFrom(customIndexName).futureValue.sorted shouldEqual Seq(
         "Akka Concurrency",
         "Akka in Action",
@@ -888,7 +878,7 @@ class ElasticsearchSpec extends WordSpec with Matchers with BeforeAndAfterAll wi
         .runWith(Sink.seq)
 
       writes.futureValue.filter(!_.success) shouldBe 'empty
-      flush(indexName)
+      refresh(indexName)
 
       //#custom-search-params
       // Search for docs and ask elastic to only return some fields

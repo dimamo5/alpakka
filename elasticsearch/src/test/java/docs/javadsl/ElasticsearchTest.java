@@ -22,6 +22,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
 import org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner;
 // #init-client
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
 import org.apache.http.HttpHost;
 // #init-client
@@ -86,7 +87,7 @@ public class ElasticsearchTest {
     register("source", "Scala Puzzlers");
     register("source", "Effective Akka");
     register("source", "Akka Concurrency");
-    flush("source");
+    refresh("source");
   }
 
   @AfterClass
@@ -102,17 +103,14 @@ public class ElasticsearchTest {
     StreamTestKit.assertAllStagesStopped(materializer);
   }
 
-  private static void flush(String indexName) throws IOException {
-    client.performRequest("POST", indexName + "/_flush");
+  private static void refresh(String indexName) throws IOException {
+    client.performRequest(new Request("POST", indexName + "/_refresh"));
   }
 
   private static void register(String indexName, String title) throws IOException {
-    client.performRequest(
-        "POST",
-        indexName + "/_doc",
-        new HashMap<>(),
-        new StringEntity(String.format("{\"title\": \"%s\"}", title)),
-        new BasicHeader("Content-Type", "application/json"));
+    Request req = new Request("POST", indexName + "/_doc");
+    req.setJsonEntity(String.format("{\"title\": \"%s\"}", title));
+    client.performRequest(req);
   }
 
   private void documentation() {
@@ -148,7 +146,7 @@ public class ElasticsearchTest {
 
     f1.toCompletableFuture().get();
 
-    flush("sink1");
+    refresh("sink1");
 
     // Assert docs in sink1/book
     CompletionStage<List<String>> f2 =
@@ -197,7 +195,7 @@ public class ElasticsearchTest {
 
     f1.toCompletableFuture().get();
 
-    flush("sink2");
+    refresh("sink2");
 
     // Assert docs in sink2/book
     CompletionStage<List<String>> f2 =
@@ -251,7 +249,7 @@ public class ElasticsearchTest {
     // #run-flow
 
     List<WriteResult<Book, NotUsed>> result1 = f1.toCompletableFuture().get();
-    flush("sink3");
+    refresh("sink3");
 
     for (WriteResult<Book, NotUsed> aResult1 : result1) {
       assertEquals(true, aResult1.success());
@@ -306,7 +304,7 @@ public class ElasticsearchTest {
         .get();
     // #multiple-operations
 
-    flush("sink8");
+    refresh("sink8");
 
     // Assert docs in sink8/book
     CompletionStage<List<String>> f2 =
@@ -371,7 +369,7 @@ public class ElasticsearchTest {
             .runWith(Sink.ignore(), materializer);
     // #kafka-example
     kafkaToEs.toCompletableFuture().get(5, TimeUnit.SECONDS); // Wait for it to complete
-    flush("sink6");
+    refresh("sink6");
 
     // Make sure all messages was committed to kafka
     assertEquals(Arrays.asList(0, 1, 2), kafkaCommitter.committedOffsets);
@@ -417,7 +415,7 @@ public class ElasticsearchTest {
         .toCompletableFuture()
         .get();
 
-    flush(indexName);
+    refresh(indexName);
 
     // Search document and assert it having version 1
     ReadResult<Book> message =
@@ -434,22 +432,22 @@ public class ElasticsearchTest {
 
     assertEquals(1L, message.version().get());
 
-    flush(indexName);
+    refresh(indexName);
 
     // Update document to version 2
-    Source.single(WriteMessage.createIndexMessage("1", book).withVersion(1L))
+    Source.single(WriteMessage.createIndexMessage("1", book).withVersion(2))
         .via(
             ElasticsearchFlow.create(
                 indexName,
                 typeName,
-                ElasticsearchWriteSettings.create().withBufferSize(5),
+                ElasticsearchWriteSettings.create().withBufferSize(5).withVersionType("external"),
                 client,
                 new ObjectMapper()))
         .runWith(Sink.seq(), materializer)
         .toCompletableFuture()
         .get();
 
-    flush(indexName);
+    refresh(indexName);
 
     // Try to update document with wrong version to assert that we can send it
     long oldVersion = 1;
@@ -459,7 +457,9 @@ public class ElasticsearchTest {
                 ElasticsearchFlow.create(
                     indexName,
                     typeName,
-                    ElasticsearchWriteSettings.create().withBufferSize(5),
+                    ElasticsearchWriteSettings.create()
+                        .withBufferSize(5)
+                        .withVersionType("external"),
                     client,
                     new ObjectMapper()))
             .runWith(Sink.seq(), materializer)
@@ -493,7 +493,7 @@ public class ElasticsearchTest {
         .toCompletableFuture()
         .get();
 
-    flush(indexName);
+    refresh(indexName);
 
     // Assert that the document's external version is saved
     ReadResult<Book> message =
@@ -558,7 +558,7 @@ public class ElasticsearchTest {
         .toCompletableFuture()
         .get();
 
-    flush(indexName);
+    refresh(indexName);
 
     // #custom-search-params
     // Search for docs and ask elastic to only return some fields
@@ -584,7 +584,7 @@ public class ElasticsearchTest {
             .toCompletableFuture()
             .get();
     // #custom-search-params
-    flush(indexName);
+    refresh(indexName);
 
     assertEquals(
         docs.size(),
