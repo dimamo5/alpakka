@@ -26,18 +26,16 @@ object ElasticsearchSource {
    * Using default objectMapper
    */
   def create(indexName: String,
-             typeName: String,
              query: String,
              settings: ElasticsearchSourceSettings,
              elasticsearchClient: RestClient): Source[ReadResult[java.util.Map[String, Object]], NotUsed] =
-    create(indexName, typeName, query, settings, elasticsearchClient, new ObjectMapper())
+    create(indexName, query, settings, elasticsearchClient, new ObjectMapper())
 
   /**
    * Creates a [[akka.stream.javadsl.Source]] from Elasticsearch that streams [[ReadResult]]s of [[java.util.Map]].
    * Using custom objectMapper
    */
   def create(indexName: String,
-             typeName: String,
              query: String,
              settings: ElasticsearchSourceSettings,
              elasticsearchClient: RestClient,
@@ -45,35 +43,7 @@ object ElasticsearchSource {
     Source.fromGraph(
       new impl.ElasticsearchSourceStage(
         indexName,
-        Option(typeName),
         Map("query" -> query),
-        elasticsearchClient,
-        settings,
-        new JacksonReader[java.util.Map[String, Object]](objectMapper, classOf[java.util.Map[String, Object]])
-      )
-    )
-
-  /**
-   * Creates a [[akka.stream.javadsl.Source]] from Elasticsearch that streams [[ReadResult]]s of [[java.util.Map]].
-   * Using custom objectMapper.
-   *
-   * Example of searchParams-usage:
-   *
-   * Map<String, String> searchParams = new HashMap<>();
-   * searchParams.put("query", "{\"match_all\": {}}");
-   * searchParams.put("_source", "[\"fieldToInclude\", \"anotherFieldToInclude\"]");
-   */
-  def create(indexName: String,
-             typeName: String,
-             searchParams: JMap[String, String],
-             settings: ElasticsearchSourceSettings,
-             elasticsearchClient: RestClient,
-             objectMapper: ObjectMapper): Source[ReadResult[java.util.Map[String, Object]], NotUsed] =
-    Source.fromGraph(
-      new impl.ElasticsearchSourceStage(
-        indexName,
-        Option(typeName),
-        searchParams.asScala.toMap,
         elasticsearchClient,
         settings,
         new JacksonReader[java.util.Map[String, Object]](objectMapper, classOf[java.util.Map[String, Object]])
@@ -85,19 +55,17 @@ object ElasticsearchSource {
    * Using default objectMapper
    */
   def typed[T](indexName: String,
-               typeName: String,
                query: String,
                settings: ElasticsearchSourceSettings,
                elasticsearchClient: RestClient,
                clazz: Class[T]): Source[ReadResult[T], NotUsed] =
-    typed[T](indexName, typeName, query, settings, elasticsearchClient, clazz, new ObjectMapper())
+    typed[T](indexName, query, settings, elasticsearchClient, clazz, new ObjectMapper())
 
   /**
    * Creates a [[akka.stream.javadsl.Source]] from Elasticsearch that streams [[ReadResult]]s of type `T`.
    * Using custom objectMapper
    */
   def typed[T](indexName: String,
-               typeName: String,
                query: String,
                settings: ElasticsearchSourceSettings,
                elasticsearchClient: RestClient,
@@ -106,7 +74,6 @@ object ElasticsearchSource {
     Source.fromGraph(
       new impl.ElasticsearchSourceStage(
         indexName,
-        Option(typeName),
         Map("query" -> query),
         elasticsearchClient,
         settings,
@@ -125,7 +92,6 @@ object ElasticsearchSource {
    * searchParams.put("_source", "[\"fieldToInclude\", \"anotherFieldToInclude\"]");
    */
   def typed[T](indexName: String,
-               typeName: String,
                searchParams: JMap[String, String],
                settings: ElasticsearchSourceSettings,
                elasticsearchClient: RestClient,
@@ -134,7 +100,6 @@ object ElasticsearchSource {
     Source.fromGraph(
       new impl.ElasticsearchSourceStage(
         indexName,
-        Option(typeName),
         searchParams.asScala.toMap,
         elasticsearchClient,
         settings,

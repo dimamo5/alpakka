@@ -43,7 +43,6 @@ private[elasticsearch] trait MessageReader[T] {
  */
 @InternalApi
 private[elasticsearch] final class ElasticsearchSourceStage[T](indexName: String,
-                                                               typeName: Option[String],
                                                                searchParams: Map[String, String],
                                                                client: RestClient,
                                                                settings: ElasticsearchSourceSettings,
@@ -55,7 +54,7 @@ private[elasticsearch] final class ElasticsearchSourceStage[T](indexName: String
   override val shape: SourceShape[ReadResult[T]] = SourceShape(out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-    new ElasticsearchSourceLogic[T](indexName, typeName, searchParams, client, settings, out, shape, reader)
+    new ElasticsearchSourceLogic[T](indexName, searchParams, client, settings, out, shape, reader)
 
 }
 
@@ -64,7 +63,6 @@ private[elasticsearch] final class ElasticsearchSourceStage[T](indexName: String
  */
 @InternalApi
 private[elasticsearch] final class ElasticsearchSourceLogic[T](indexName: String,
-                                                               typeName: Option[String],
                                                                searchParams: Map[String, String],
                                                                client: RestClient,
                                                                settings: ElasticsearchSourceSettings,
@@ -117,10 +115,8 @@ private[elasticsearch] final class ElasticsearchSourceLogic[T](indexName: String
             }
             .mkString(",") + "}"
 
-        val endpoint: String = (indexName, typeName) match {
-          case (i, Some(t)) => s"/$i/$t/_search"
-          case (i, None) => s"/$i/_search"
-        }
+        val endpoint: String = s"/$indexName/_doc/_search"
+
         val req = new Request("POST", endpoint)
         req.setJsonEntity(searchBody)
         req.addParameter("scroll", settings.scroll)

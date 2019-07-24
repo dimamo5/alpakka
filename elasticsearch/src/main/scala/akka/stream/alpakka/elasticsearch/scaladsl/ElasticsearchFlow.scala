@@ -28,13 +28,11 @@ object ElasticsearchFlow {
    *
    * Warning: When settings configure retrying, messages are emitted out-of-order when errors are detected.
    */
-  def create[T](indexName: String,
-                typeName: String,
-                settings: ElasticsearchWriteSettings = ElasticsearchWriteSettings.Default)(
+  def create[T](indexName: String, settings: ElasticsearchWriteSettings = ElasticsearchWriteSettings.Default)(
       implicit elasticsearchClient: RestClient,
       sprayJsonWriter: JsonWriter[T]
   ): Flow[WriteMessage[T, NotUsed], WriteResult[T, NotUsed], NotUsed] =
-    create[T](indexName, typeName, settings, new SprayJsonWriter[T]()(sprayJsonWriter))
+    create[T](indexName, settings, new SprayJsonWriter[T]()(sprayJsonWriter))
 
   /**
    * Create a flow to update Elasticsearch with [[akka.stream.alpakka.elasticsearch.WriteMessage WriteMessage]]s containing type `T`.
@@ -43,7 +41,7 @@ object ElasticsearchFlow {
    *
    * Warning: When settings configure retrying, messages are emitted out-of-order when errors are detected.
    */
-  def create[T](indexName: String, typeName: String, settings: ElasticsearchWriteSettings, writer: MessageWriter[T])(
+  def create[T](indexName: String, settings: ElasticsearchWriteSettings, writer: MessageWriter[T])(
       implicit elasticsearchClient: RestClient
   ): Flow[WriteMessage[T, NotUsed], WriteResult[T, NotUsed], NotUsed] =
     Flow[WriteMessage[T, NotUsed]]
@@ -51,7 +49,6 @@ object ElasticsearchFlow {
       .via(
         new impl.ElasticsearchFlowStage[T, NotUsed](
           indexName,
-          typeName,
           elasticsearchClient,
           settings,
           writer
@@ -70,12 +67,11 @@ object ElasticsearchFlow {
    * Warning: When settings configure retrying, messages are emitted out-of-order when errors are detected.
    */
   def createWithPassThrough[T, C](indexName: String,
-                                  typeName: String,
                                   settings: ElasticsearchWriteSettings = ElasticsearchWriteSettings.Default)(
       implicit elasticsearchClient: RestClient,
       sprayJsonWriter: JsonWriter[T]
   ): Flow[WriteMessage[T, C], WriteResult[T, C], NotUsed] =
-    createWithPassThrough[T, C](indexName, typeName, settings, new SprayJsonWriter[T]()(sprayJsonWriter))
+    createWithPassThrough[T, C](indexName, settings, new SprayJsonWriter[T]()(sprayJsonWriter))
 
   /**
    * Create a flow to update Elasticsearch with [[akka.stream.alpakka.elasticsearch.WriteMessage WriteMessage]]s containing type `T`
@@ -85,10 +81,7 @@ object ElasticsearchFlow {
    *
    * Warning: When settings configure retrying, messages are emitted out-of-order when errors are detected.
    */
-  def createWithPassThrough[T, C](indexName: String,
-                                  typeName: String,
-                                  settings: ElasticsearchWriteSettings,
-                                  writer: MessageWriter[T])(
+  def createWithPassThrough[T, C](indexName: String, settings: ElasticsearchWriteSettings, writer: MessageWriter[T])(
       implicit elasticsearchClient: RestClient
   ): Flow[WriteMessage[T, C], WriteResult[T, C], NotUsed] =
     Flow[WriteMessage[T, C]]
@@ -96,7 +89,6 @@ object ElasticsearchFlow {
       .via(
         new impl.ElasticsearchFlowStage[T, C](
           indexName,
-          typeName,
           elasticsearchClient,
           settings,
           writer
@@ -115,13 +107,11 @@ object ElasticsearchFlow {
    * @throws IllegalArgumentException When settings configure retrying.
    */
   @ApiMayChange
-  def createWithContext[T, C](indexName: String,
-                              typeName: String,
-                              settings: ElasticsearchWriteSettings = ElasticsearchWriteSettings())(
+  def createWithContext[T, C](indexName: String, settings: ElasticsearchWriteSettings = ElasticsearchWriteSettings())(
       implicit elasticsearchClient: RestClient,
       sprayJsonWriter: JsonWriter[T]
   ): FlowWithContext[WriteMessage[T, NotUsed], C, WriteResult[T, C], C, NotUsed] =
-    createWithContext[T, C](indexName, typeName, settings, new SprayJsonWriter[T]()(sprayJsonWriter))
+    createWithContext[T, C](indexName, settings, new SprayJsonWriter[T]()(sprayJsonWriter))
 
   /**
    * Create a flow to update Elasticsearch with [[akka.stream.alpakka.elasticsearch.WriteMessage WriteMessage]]s containing type `T`
@@ -132,16 +122,13 @@ object ElasticsearchFlow {
    * @throws IllegalArgumentException When settings configure retrying.
    */
   @ApiMayChange
-  def createWithContext[T, C](indexName: String,
-                              typeName: String,
-                              settings: ElasticsearchWriteSettings,
-                              writer: MessageWriter[T])(
+  def createWithContext[T, C](indexName: String, settings: ElasticsearchWriteSettings, writer: MessageWriter[T])(
       implicit elasticsearchClient: RestClient
   ): FlowWithContext[WriteMessage[T, NotUsed], C, WriteResult[T, C], C, NotUsed] = {
     require(settings.retryLogic == RetryNever,
             "`withContext` may not be used with retrying enabled, as it disturbs element order")
     Flow[WriteMessage[T, C]]
-      .via(createWithPassThrough(indexName, typeName, settings, writer))
+      .via(createWithPassThrough(indexName, settings, writer))
       .asFlowWithContext[WriteMessage[T, NotUsed], C, C]((res, c) => res.withPassThrough(c))(
         p => p.message.passThrough
       )

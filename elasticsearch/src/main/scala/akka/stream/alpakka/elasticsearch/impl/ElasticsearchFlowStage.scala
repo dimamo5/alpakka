@@ -23,13 +23,11 @@ import scala.collection.immutable
 @InternalApi
 private[elasticsearch] final class ElasticsearchFlowStage[T, C](
     indexName: String,
-    typeName: String,
     client: RestClient,
     settings: ElasticsearchWriteSettings,
     writer: MessageWriter[T]
 ) extends GraphStage[FlowShape[immutable.Seq[WriteMessage[T, C]], immutable.Seq[WriteResult[T, C]]]] {
   require(indexName != null, "You must define an index name")
-  require(typeName != null, "You must define a type name")
 
   private val in = Inlet[immutable.Seq[WriteMessage[T, C]]]("messages")
   private val out = Outlet[immutable.Seq[WriteResult[T, C]]]("result")
@@ -39,7 +37,6 @@ private[elasticsearch] final class ElasticsearchFlowStage[T, C](
 
   private class StageLogic extends TimerGraphStageLogic(shape) with InHandler with OutHandler with StageLogging {
 
-    private val typeNameTuple = "_type" -> JsString(typeName)
     private val versionTypeTuple: Option[(String, JsString)] = settings.versionType.map { versionType =>
       "version_type" -> JsString(versionType)
     }
@@ -137,14 +134,13 @@ private[elasticsearch] final class ElasticsearchFlowStage[T, C](
       val json = messages
         .map { message =>
           val sharedFields: Seq[(String, JsString)] = Seq(
-              "_index" -> JsString(message.indexName.getOrElse(indexName)),
-              typeNameTuple
+              "_index" -> JsString(message.indexName.getOrElse(indexName))
             ) ++ message.customMetadata.map { case (field, value) => field -> JsString(value) }
           val tuple: (String, JsObject) = message.operation match {
             case Index =>
               val fields = Seq(
                 message.version.map { version =>
-                  "_version" -> JsNumber(version)
+                  "version" -> JsNumber(version)
                 },
                 versionTypeTuple,
                 message.id.map { id =>

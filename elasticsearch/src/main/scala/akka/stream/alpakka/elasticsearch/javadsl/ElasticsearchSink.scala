@@ -22,13 +22,12 @@ object ElasticsearchSink {
    */
   def create[T](
       indexName: String,
-      typeName: String,
       settings: ElasticsearchWriteSettings,
       elasticsearchClient: RestClient,
       objectMapper: ObjectMapper
   ): akka.stream.javadsl.Sink[WriteMessage[T, NotUsed], CompletionStage[Done]] =
     ElasticsearchFlow
-      .create(indexName, typeName, settings, elasticsearchClient, objectMapper)
+      .create(indexName, settings, elasticsearchClient, objectMapper)
       .toMat(Sink.ignore[WriteResult[T, NotUsed]], Keep.right[NotUsed, CompletionStage[Done]])
 
 }

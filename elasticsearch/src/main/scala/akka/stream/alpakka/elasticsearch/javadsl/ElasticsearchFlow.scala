@@ -27,7 +27,6 @@ object ElasticsearchFlow {
    */
   def create[T](
       indexName: String,
-      typeName: String,
       settings: ElasticsearchWriteSettings,
       elasticsearchClient: RestClient,
       objectMapper: ObjectMapper
@@ -37,7 +36,6 @@ object ElasticsearchFlow {
       .batch(settings.bufferSize, immutable.Seq(_)) { case (seq, wm) => seq :+ wm }
       .via(
         new impl.ElasticsearchFlowStage[T, NotUsed](indexName,
-                                                    typeName,
                                                     elasticsearchClient,
                                                     settings,
                                                     new JacksonWriter[T](objectMapper))
@@ -55,7 +53,6 @@ object ElasticsearchFlow {
    */
   def createWithPassThrough[T, C](
       indexName: String,
-      typeName: String,
       settings: ElasticsearchWriteSettings,
       elasticsearchClient: RestClient,
       objectMapper: ObjectMapper
@@ -65,7 +62,6 @@ object ElasticsearchFlow {
       .batch(settings.bufferSize, immutable.Seq(_)) { case (seq, wm) => seq :+ wm }
       .via(
         new impl.ElasticsearchFlowStage[T, C](indexName,
-                                              typeName,
                                               elasticsearchClient,
                                               settings,
                                               new JacksonWriter[T](objectMapper))
@@ -84,7 +80,6 @@ object ElasticsearchFlow {
   @ApiMayChange
   def createWithContext[T, C](
       indexName: String,
-      typeName: String,
       settings: ElasticsearchWriteSettings,
       elasticsearchClient: RestClient,
       objectMapper: ObjectMapper
@@ -94,7 +89,6 @@ object ElasticsearchFlow {
       .batch(settings.bufferSize, immutable.Seq(_)) { case (seq, wm) => seq :+ wm }
       .via(
         new impl.ElasticsearchFlowStage[T, C](indexName,
-                                              typeName,
                                               elasticsearchClient,
                                               settings,
                                               new JacksonWriter[T](objectMapper))
