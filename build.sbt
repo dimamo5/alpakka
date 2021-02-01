@@ -117,10 +117,18 @@ lazy val elasticsearch = alpakkaProject(
   "elasticsearch",
   Dependencies.Elasticsearch,
   // For elasticsearch-cluster-runner https://github.com/akka/alpakka/issues/479
-  parallelExecution in Test := false
-)
+  parallelExecution in Test := false,
+  version := "1.0.4-velocidi-SNAPSHOT",
+  publishTo := {
+    val nexus = "http://nexus.hal9000.velocidi.io/content/repositories/"
+    if (isSnapshot.value)
+      Some(("snapshots" at nexus + "snapshots"))
+    else
+      Some(("releases" at nexus + "releases"))
+  }
+).disablePlugins(BintrayPlugin)
 
-// The name 'file' is taken by `sbt.file`, hence 'files'
+// the name 'file' is taken by `sbt.file`, hence 'files'
 lazy val files = alpakkaProject("file", "file", Dependencies.File)
 
 lazy val ftp = alpakkaProject(
