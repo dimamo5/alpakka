@@ -138,8 +138,16 @@ lazy val elasticsearch = alpakkaProject(
   "elasticsearch",
   "elasticsearch",
   Dependencies.Elasticsearch,
-  fatalWarnings := true
-)
+  fatalWarnings := true,
+  version := "3.0.0-velocidi",
+  publishTo := {
+    val nexus = "http://nexus.hal9000.velocidi.io/content/repositories/"
+    if (isSnapshot.value)
+      Some(("snapshots" at nexus + "snapshots").withAllowInsecureProtocol(true))
+    else
+      Some(("releases" at nexus + "releases").withAllowInsecureProtocol(true))
+  }
+).disablePlugins(BintrayPlugin)
 
 // The name 'file' is taken by `sbt.file`, hence 'files'
 lazy val files = alpakkaProject("file", "file", Dependencies.File, fatalWarnings := true)
