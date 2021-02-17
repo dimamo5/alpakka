@@ -141,8 +141,9 @@ lazy val elasticsearch = alpakkaProject(
   fatalWarnings := true,
   version := "3.0.0-velocidi",
   publishTo := {
+    val isSnapshot = version.value.endsWith("-SNAPSHOT")
     val nexus = "http://nexus.hal9000.velocidi.io/content/repositories/"
-    if (isSnapshot.value)
+    if (isSnapshot)
       Some(("snapshots" at nexus + "snapshots").withAllowInsecureProtocol(true))
     else
       Some(("releases" at nexus + "releases").withAllowInsecureProtocol(true))
